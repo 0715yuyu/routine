@@ -24,30 +24,16 @@ jobs:
         with:
           node-version: 22
 
-      # ファイルが直下にあるか、pwa フォルダの中にあるかを調べる
-      - name: Find project directory
-        id: dir
-        run: |
-          if [ -f package.json ]; then
-            echo "path=." >> $GITHUB_OUTPUT
-          elif [ -f pwa/package.json ]; then
-            echo "path=pwa" >> $GITHUB_OUTPUT
-          else
-            echo "package.json が見つかりません"
-            exit 1
-          fi
-
       - run: npm install
-        working-directory: ${{ steps.dir.outputs.path }}
 
       - run: npm run build
-        working-directory: ${{ steps.dir.outputs.path }}
         env:
+          # リポジトリ名から公開パスを自動で決める(例: /routine/)
           BASE_PATH: /${{ github.event.repository.name }}/
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: ${{ steps.dir.outputs.path }}/dist
+          path: dist
 
   deploy:
     needs: build

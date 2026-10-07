@@ -1,0 +1,448 @@
+:root {
+  --bg: #faf9f7;
+  --surface: #ffffff;
+  --border: #e4e1dc;
+  --text: #1c1b19;
+  --muted: #6f6b65;
+  --primary: #3a7d6b;
+  --primary-soft: #d8e8e2;
+  --track: #ebe8e4;
+  --radius: 16px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #15171a;
+    --surface: #1e2125;
+    --border: #2f3338;
+    --text: #e9e7e3;
+    --muted: #9a958e;
+    --primary: #74b8a4;
+    --primary-soft: #2a4740;
+    --track: #2a2e33;
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: -apple-system, BlinkMacSystemFont, 'Hiragino Sans',
+    'Noto Sans JP', sans-serif;
+  /* ホーム画面起動時に、引っぱってページ全体が動くのを止める */
+  overscroll-behavior-y: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* ---------- レイアウト ---------- */
+
+.app {
+  max-width: 560px;
+  margin: 0 auto;
+  /* ノッチとホームインジケータを避ける */
+  padding: calc(env(safe-area-inset-top) + 12px) 16px
+    calc(env(safe-area-inset-bottom) + 96px);
+}
+
+.topbar {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.topbar h1 {
+  font-size: 22px;
+  margin: 0;
+}
+
+.topbar .date {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.topbar .spacer {
+  flex: 1;
+}
+
+.icon-button {
+  background: none;
+  border: none;
+  font-size: 15px;
+  color: var(--primary);
+  padding: 8px;
+  border-radius: 10px;
+}
+
+/* ---------- カード ---------- */
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.card-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.card-meta {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 3px;
+}
+
+.card-meta .streak {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.tag {
+  font-size: 11px;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 3px 9px;
+  white-space: nowrap;
+}
+
+/* ---------- 進捗 ---------- */
+
+.progress-row {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  margin: 14px 0 6px;
+}
+
+.progress-row .level {
+  color: var(--muted);
+}
+
+.progress-row .level.done {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.track {
+  position: relative;
+  height: 8px;
+  background: var(--track);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: 4px;
+  transition: width 0.25s ease;
+}
+
+/* 最低ラインの位置を示す縦線。ゴールが遠く見えて手が止まるのを防ぐ */
+.minimum-mark {
+  position: absolute;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  background: var(--muted);
+  opacity: 0.55;
+}
+
+/* ---------- ボタン ---------- */
+
+.actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.actions button {
+  flex: 1;
+  /* 指で押しやすい高さ。44px は iOS の推奨下限 */
+  min-height: 46px;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.btn-minimum {
+  background: var(--surface);
+  border: 1.5px solid var(--border);
+  color: var(--text);
+}
+
+.btn-normal {
+  background: var(--primary);
+  border: 1.5px solid var(--primary);
+  color: #fff;
+}
+
+.btn-normal.done {
+  background: var(--primary-soft);
+  border-color: var(--primary-soft);
+  color: var(--primary);
+}
+
+/* ---------- 週のドット ---------- */
+
+.week {
+  display: flex;
+  margin-top: 16px;
+}
+
+.week-day {
+  flex: 1;
+  text-align: center;
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.week-day.today {
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.dot {
+  width: 13px;
+  height: 13px;
+  margin: 5px auto 0;
+  border-radius: 50%;
+  border: 1.5px solid transparent;
+}
+
+.dot.normal {
+  background: var(--primary);
+}
+
+/* 最低ラインでも必ず色がつく。これがこのアプリの核心 */
+.dot.minimum {
+  background: var(--primary);
+  opacity: 0.4;
+}
+
+.dot.rest {
+  background: var(--track);
+  border-color: var(--border);
+}
+
+/* 未達に赤は使わない。色がつかないだけに留める */
+.dot.missed {
+  border-color: var(--muted);
+  opacity: 0.6;
+}
+
+.dot.none {
+  border-color: var(--border);
+}
+
+.dot.future {
+  opacity: 0.25;
+}
+
+/* ---------- 休息日 ---------- */
+
+.rest-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.rest-row .spacer {
+  flex: 1;
+}
+
+.link-button {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 14px;
+  padding: 8px 10px;
+}
+
+/* ---------- 空の状態 ---------- */
+
+.empty {
+  text-align: center;
+  padding: 72px 16px;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.8;
+}
+
+.empty h2 {
+  color: var(--text);
+  font-size: 17px;
+}
+
+/* ---------- トースト ---------- */
+
+.toast {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: calc(env(safe-area-inset-bottom) + 16px);
+  max-width: 528px;
+  margin: 0 auto;
+  background: var(--text);
+  color: var(--bg);
+  border-radius: 12px;
+  padding: 12px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 14px;
+}
+
+.toast .spacer {
+  flex: 1;
+}
+
+.toast button {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-weight: 700;
+  padding: 4px;
+}
+
+/* ---------- 編集画面 ---------- */
+
+.sheet {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  overflow-y: auto;
+  padding: calc(env(safe-area-inset-top) + 12px) 16px
+    calc(env(safe-area-inset-bottom) + 48px);
+}
+
+.sheet-head {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.sheet-head h2 {
+  font-size: 18px;
+  margin: 0 auto 0 0;
+}
+
+.field {
+  margin-bottom: 20px;
+}
+
+.field label {
+  display: block;
+  font-size: 13px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  /* 16px 未満だと iOS が入力時に勝手にズームする */
+  font-size: 16px;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+  color: var(--text);
+}
+
+.field .hint {
+  font-size: 12px;
+  color: var(--muted);
+  margin-top: 6px;
+  line-height: 1.6;
+}
+
+.field .error {
+  font-size: 12px;
+  color: #b4544a;
+  margin-top: 6px;
+}
+
+.row {
+  display: flex;
+  gap: 10px;
+}
+
+.row > * {
+  flex: 1;
+}
+
+.row .narrow {
+  flex: 0 0 76px;
+}
+
+.chips {
+  display: flex;
+  gap: 6px;
+}
+
+.chip {
+  flex: 1;
+  min-height: 42px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  font-size: 14px;
+}
+
+.chip.on {
+  border-color: var(--primary);
+  background: var(--primary-soft);
+  color: var(--primary);
+  font-weight: 700;
+}
+
+.primary-wide {
+  width: 100%;
+  min-height: 50px;
+  border-radius: 12px;
+  border: none;
+  background: var(--primary);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.danger-wide {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 32px;
+  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  background: none;
+  color: var(--muted);
+  font-size: 14px;
+}
