@@ -19,17 +19,35 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
-      - run: npm ci
+
+      # ファイルが直下にあるか、pwa フォルダの中にあるかを調べる
+      - name: Find project directory
+        id: dir
+        run: |
+          if [ -f package.json ]; then
+            echo "path=." >> $GITHUB_OUTPUT
+          elif [ -f pwa/package.json ]; then
+            echo "path=pwa" >> $GITHUB_OUTPUT
+          else
+            echo "package.json が見つかりません"
+            exit 1
+          fi
+
+      - run: npm install
+        working-directory: ${{ steps.dir.outputs.path }}
+
       - run: npm run build
+        working-directory: ${{ steps.dir.outputs.path }}
         env:
           BASE_PATH: /${{ github.event.repository.name }}/
+
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
+          path: ${{ steps.dir.outputs.path }}/dist
 
   deploy:
     needs: build
