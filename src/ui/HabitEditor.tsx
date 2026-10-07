@@ -23,6 +23,7 @@ export function HabitEditor(props: {
   const [restDays, setRestDays] = useState<number[]>(h?.restDays ?? []);
   const [time, setTime] = useState(h?.triggerTime ?? '');
   const [tag, setTag] = useState(h?.contextTag ?? '');
+  const [minutes, setMinutes] = useState(String(h?.timerMinutes ?? 5));
   const [error, setError] = useState<string | null>(null);
 
   const toggleRestDay = (weekday: number) =>
@@ -50,6 +51,7 @@ export function HabitEditor(props: {
       minimumTarget: m,
       restDays: [...restDays].sort(),
       triggerTime: time || undefined,
+      timerMinutes: Number(minutes) > 0 ? Number(minutes) : 5,
       contextTag: tag.trim() || undefined,
       archived: false,
       sortOrder: h?.sortOrder ?? 0,
@@ -161,6 +163,21 @@ export function HabitEditor(props: {
         </div>
         <p class="hint">
           選んだ曜日は、記録しなくても連続記録が途切れません。
+        </p>
+      </div>
+
+      <div class="field">
+        <label>「始める」タイマーの長さ(分)</label>
+        <input
+          type="number"
+          inputMode="numeric"
+          value={minutes}
+          onInput={(e) => setMinutes((e.target as HTMLInputElement).value)}
+        />
+        <p class="hint">
+          とりあえず始めるための時間です。短いほど押しやすくなります。
+          5分から始めて、短すぎると感じたら伸ばしてください。
+          終了すると最低ラインが自動で記録されます。
         </p>
       </div>
 

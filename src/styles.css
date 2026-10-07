@@ -446,3 +446,41 @@ button {
   color: var(--muted);
   font-size: 14px;
 }
+
+/* ---------- タイマー ---------- */
+
+/* 開始ボタンは達成ボタンより上に、幅いっぱいで置く。
+   押させたいのは「やる量」ではなく「始めること」なので、
+   視線が最初に当たる位置を取る。 */
+.timer-start {
+  width: 100%;
+  min-height: 46px;
+  margin-top: 14px;
+  border-radius: 12px;
+  border: 1.5px dashed var(--border);
+  background: none;
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.timer-running {
+  display: flex;
+  align-items: center;
+  margin-top: 14px;
+  padding: 8px 8px 8px 14px;
+  border-radius: 12px;
+  background: var(--primary-soft);
+}
+
+.timer-count {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--primary);
+  /* 数字の幅を固定して、カウントダウン中に文字が揺れないようにする */
+  font-variant-numeric: tabular-nums;
+}
+
+.timer-running .spacer {
+  flex: 1;
+}

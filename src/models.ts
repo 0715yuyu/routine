@@ -40,6 +40,8 @@ export interface Habit {
   restDays: number[];
   /** 予定時刻 'HH:MM'。iOS ではショートカットの設定に使う目安。 */
   triggerTime?: string;
+  /** 「とりあえず始める」タイマーの長さ(分)。未設定なら5分。 */
+  timerMinutes?: number;
   /** 実行場所のタグ(研究室 / 自宅 / ジム)。 */
   contextTag?: string;
   archived: boolean;

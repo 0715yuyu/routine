@@ -6,6 +6,7 @@ import {
   type TodayEntry,
 } from '../models';
 import type { LevelMap, StreakResult } from '../streak';
+import { formatRemaining } from './useTimer';
 import { WeekDots } from './WeekDots';
 
 export interface HabitDayView {
@@ -23,6 +24,10 @@ export function HabitCard(props: {
   onClear: () => void;
   onCustom: () => void;
   onEdit: () => void;
+  /** このカードのタイマーの残り。走っていなければ null。 */
+  timerRemainingMs: number | null;
+  onStartTimer: () => void;
+  onStopTimer: () => void;
 }) {
   const { habit, log } = props.view.entry;
   const { streak } = props.view;
@@ -92,6 +97,24 @@ export function HabitCard(props: {
             <div class="fill" style={{ width: `${progress}%` }} />
             <div class="minimum-mark" style={{ left: `${minimumAt}%` }} />
           </div>
+
+          {/* 開始の敷居だけを下げる。やる量ではなく「始めること」を
+              押させるので、達成ボタンより上に、幅いっぱいで置く。 */}
+          {props.timerRemainingMs === null ? (
+            <button class="timer-start" onClick={props.onStartTimer}>
+              {habit.timerMinutes ?? 5}分だけ始める
+            </button>
+          ) : (
+            <div class="timer-running">
+              <span class="timer-count">
+                {formatRemaining(props.timerRemainingMs)}
+              </span>
+              <span class="spacer" />
+              <button class="link-button" onClick={props.onStopTimer}>
+                中止
+              </button>
+            </div>
+          )}
 
           <div class="actions">
             {/* 最低ラインを左、通常ラインを右に置く。

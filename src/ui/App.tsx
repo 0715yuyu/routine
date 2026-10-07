@@ -12,9 +12,11 @@ import {
   recordNormal,
   streakOf,
   findLog,
+  findHabit,
 } from '../repository';
 import { HabitCard, type HabitDayView } from './HabitCard';
 import { HabitEditor } from './HabitEditor';
+import { useTimer } from './useTimer';
 
 interface Toast {
   message: string;
@@ -48,6 +50,27 @@ export function App() {
     );
     setViews(next);
   }, []);
+
+  /**
+   * タイマーが終わったら、最低ラインを自動で記録する。
+   *
+   * 始められた時点で目的は果たされているので、
+   * 改めてボタンを押させない。すでに最低ライン以上の記録が
+   * あるときは上書きしない。
+   */
+  const onTimerFinish = async (habitId: number) => {
+    const habit = await findHabit(habitId);
+    if (!habit) return;
+    const date = dk.today();
+    const existing = await findLog(habitId, date);
+    if (!existing || existing.achievedValue < habit.minimumTarget) {
+      await recordMinimum(habit, date);
+    }
+    await load();
+    showToast({ message: `${habit.name} — 終了。記録しました` });
+  };
+
+  const timer = useTimer((habitId) => void onTimerFinish(habitId));
 
   useEffect(() => {
     void load();
@@ -194,6 +217,18 @@ export function App() {
               askValue(view.entry.habit, view.entry.log?.achievedValue ?? 0)
             }
             onEdit={() => setEditing({ habit: view.entry.habit })}
+            timerRemainingMs={
+              timer.timer?.habitId === view.entry.habit.id
+                ? timer.remainingMs
+                : null
+            }
+            onStartTimer={() =>
+              timer.start(
+                view.entry.habit.id!,
+                view.entry.habit.timerMinutes ?? 5,
+              )
+            }
+            onStopTimer={timer.stop}
           />
         ))
       )}
