@@ -49,12 +49,29 @@ export interface Habit {
   createdAt: DateKey;
 }
 
+/** 1回分の記録。1日に何度かに分けてやった分を個別に残す。 */
+export interface SessionEntry {
+  /** 記録した時刻(ISO 文字列)。 */
+  at: string;
+  /** そのとき足した量。 */
+  value: number;
+}
+
 export interface HabitLog {
   id?: number;
   habitId: number;
   date: DateKey;
+  /** その日の合計。sessions の合計と一致する。 */
   achievedValue: number;
   level: LogLevel;
+  /**
+   * その日の個々の記録。
+   *
+   * 1日1行のまま中に配列を持たせている。行を増やすと
+   * 連続記録の計算が壊れるため。この項目が無い古い行も
+   * そのまま読めるよう、読み出し側で合計から補う。
+   */
+  sessions?: SessionEntry[];
   contextTag?: string;
   note?: string;
   createdAt: string;
@@ -145,3 +162,22 @@ export const dk = {
 };
 
 export const WEEKDAY_LABELS = ['月', '火', '水', '木', '金', '土', '日'];
+
+/** 'HH:MM' 形式の時刻。セッション一覧の表示用。 */
+export function formatClock(iso: string): string {
+  const d = new Date(iso);
+  return `${d.getHours()}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+/**
+ * ログからセッション一覧を取り出す。
+ * sessions を持たない古い行は、合計を1回分として扱う。
+ */
+export function sessionsOf(log: HabitLog | undefined): SessionEntry[] {
+  if (!log || log.level === 'rest') return [];
+  if (log.sessions?.length) return log.sessions;
+  if (log.achievedValue > 0) {
+    return [{ at: log.createdAt, value: log.achievedValue }];
+  }
+  return [];
+}

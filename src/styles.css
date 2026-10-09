@@ -183,10 +183,27 @@ button {
 .actions button {
   flex: 1;
   /* 指で押しやすい高さ。44px は iOS の推奨下限 */
-  min-height: 46px;
+  min-height: 52px;
   border-radius: 12px;
-  font-size: 14px;
-  font-weight: 600;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  padding: 6px 4px;
+}
+
+/* 「最低ライン」という言葉を残すための小見出し。
+   加算式にして数字が +1 になっても、意味が伝わるようにする。 */
+.btn-cap {
+  font-size: 10px;
+  opacity: 0.75;
+  font-weight: 500;
+}
+
+.btn-main {
+  font-size: 15px;
+  font-weight: 700;
 }
 
 .btn-minimum {
@@ -483,4 +500,182 @@ button {
 
 .timer-running .spacer {
   flex: 1;
+}
+
+/* ---------- 累積と超過 ---------- */
+
+.card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 8px;
+}
+
+/* 減らない数字。連続記録と違って途切れないので、
+   こちらを達成感の支えにする。 */
+.card-meta .total {
+  color: var(--muted);
+}
+
+.overflow {
+  margin-left: 6px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.progress-row .spacer {
+  flex: 1;
+}
+
+/* 達成した瞬間に小さく出る。key を変えて作り直すことで発火する。 */
+.progress-row .level.done {
+  animation: pop 0.32s ease-out;
+}
+
+@keyframes pop {
+  0% {
+    transform: scale(0.7);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* ---------- セッション ---------- */
+
+.sessions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  margin-top: 10px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.session b {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* ---------- 記録画面 ---------- */
+
+.month-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 18px;
+}
+
+.month-label {
+  font-size: 15px;
+  font-weight: 600;
+  min-width: 112px;
+  text-align: center;
+}
+
+.history-card {
+  margin-bottom: 16px;
+}
+
+.grid-head,
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.grid-head {
+  margin: 12px 0 6px;
+  font-size: 10px;
+  color: var(--muted);
+  text-align: center;
+}
+
+.cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  font-size: 11px;
+  border: 1.5px solid transparent;
+}
+
+.cell.normal {
+  background: var(--primary);
+  color: #fff;
+  font-weight: 700;
+}
+
+/* 最低ラインでも必ず色がつく。カレンダーでも同じ原則を通す。 */
+.cell.minimum {
+  background: var(--primary);
+  opacity: 0.42;
+  color: #fff;
+  font-weight: 600;
+}
+
+.cell.rest {
+  background: var(--track);
+  color: var(--muted);
+}
+
+/* 未達に赤は使わない。輪郭だけにする。 */
+.cell.missed {
+  border-color: var(--muted);
+  color: var(--muted);
+  opacity: 0.7;
+}
+
+.cell.none {
+  border-color: var(--border);
+  color: var(--muted);
+}
+
+.cell.future {
+  opacity: 0.35;
+}
+
+.cell.outside {
+  border-color: transparent;
+}
+
+.cell.today {
+  box-shadow: 0 0 0 2px var(--primary);
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.stat-label {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.stat-value {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-value.strong {
+  color: var(--primary);
+  font-size: 16px;
+  font-weight: 700;
 }

@@ -7,11 +7,14 @@ import {
 import {
   breaksStreak,
   dk,
+  isAchieved,
   isRestDay,
   levelFor,
+  sessionsOf,
   type DateKey,
   type Habit,
   type HabitLog,
+  type SessionEntry,
   type TodayEntry,
 } from './models';
 
@@ -82,49 +85,58 @@ export async function entriesFor(date: DateKey): Promise<TodayEntry[]> {
 }
 
 /**
- * 実績値を指定して記録する。達成レベルは levelFor が決める。
+ * 1回分を足す。1日に何度もやる場合の基本操作。
  *
- * 最低ライン未満の値を記録した場合は 'missed' になるが、
- * 実績値そのものは残る(「0 ではなかった」ことを振り返りで使う)。
+ * 合計を書き換えるのではなく積み上げるので、朝に1段落・
+ * 夜に3段落といった記録が両方残る。休息として記録済みの日に
+ * 実績が入ったら、休息を上書きして0から積み直す。
  */
-export async function record(options: {
-  habit: Habit;
-  value: number;
-  date?: DateKey;
-  contextTag?: string;
-  note?: string;
-}): Promise<HabitLog> {
-  const { habit, value } = options;
-  return upsert({
-    habit,
-    date: options.date ?? dk.today(),
-    value,
-    level: levelFor(habit, value),
-    contextTag: options.contextTag ?? habit.contextTag,
-    note: options.note,
-  });
-}
-
-export const recordNormal = (habit: Habit, date?: DateKey) =>
-  record({ habit, value: habit.normalTarget, date });
-
-export const recordMinimum = (habit: Habit, date?: DateKey) =>
-  record({ habit, value: habit.minimumTarget, date });
-
-/**
- * 既存の実績に加算する。SRS の復習枚数など、
- * 1日に何度かに分けて積み上がる習慣で使う。
- */
-export async function addProgress(
+export async function addSession(
   habit: Habit,
   delta: number,
   date: DateKey = dk.today(),
 ): Promise<HabitLog> {
   const existing = await findLog(habit.id!, date);
-  // 休息として記録済みの日に実績が入ったら、休息を上書きして加算する。
-  const base =
-    !existing || existing.level === 'rest' ? 0 : existing.achievedValue;
-  return record({ habit, value: base + delta, date });
+  const previous = sessionsOf(existing);
+  const base = previous.reduce((sum, s) => sum + s.value, 0);
+  const total = base + delta;
+
+  return upsert({
+    habit,
+    date,
+    value: total,
+    level: levelFor(habit, total),
+    sessions: [...previous, { at: new Date().toISOString(), value: delta }],
+    contextTag: habit.contextTag,
+    note: existing?.note,
+  });
+}
+
+export const addMinimum = (habit: Habit, date?: DateKey) =>
+  addSession(habit, habit.minimumTarget, date);
+
+export const addNormal = (habit: Habit, date?: DateKey) =>
+  addSession(habit, habit.normalTarget, date);
+
+/**
+ * その日の合計を直接指定する。
+ * 「数値を入力して記録」で使う。セッションは1件にまとめ直す。
+ */
+export async function setTotal(
+  habit: Habit,
+  value: number,
+  date: DateKey = dk.today(),
+): Promise<HabitLog> {
+  const existing = await findLog(habit.id!, date);
+  return upsert({
+    habit,
+    date,
+    value,
+    level: levelFor(habit, value),
+    sessions: value > 0 ? [{ at: new Date().toISOString(), value }] : [],
+    contextTag: habit.contextTag,
+    note: existing?.note,
+  });
 }
 
 /** 休息日として記録する。連続記録は途切れない。 */
@@ -134,6 +146,7 @@ export const markRest = (habit: Habit, date: DateKey = dk.today()) =>
     date,
     value: 0,
     level: 'rest',
+    sessions: [],
     contextTag: undefined,
     note: undefined,
   });
@@ -148,11 +161,29 @@ export async function clearLog(
   if (existing?.id !== undefined) await db.delete('logs', existing.id);
 }
 
+/**
+ * 取り消し用。直前のログをそのまま書き戻す。
+ * 記録前が未記録だった場合は削除する。
+ */
+export async function restoreLog(
+  habitId: number,
+  date: DateKey,
+  previous: HabitLog | undefined,
+): Promise<void> {
+  if (!previous) {
+    await clearLog(habitId, date);
+    return;
+  }
+  const db = await database();
+  await db.put('logs', previous);
+}
+
 async function upsert(options: {
   habit: Habit;
   date: DateKey;
   value: number;
   level: HabitLog['level'];
+  sessions: SessionEntry[];
   contextTag?: string;
   note?: string;
 }): Promise<HabitLog> {
@@ -163,21 +194,35 @@ async function upsert(options: {
 
   // createdAt は残したいので、既存行があれば引き継ぐ。
   const log: HabitLog = {
-    id: existing?.id,
     habitId,
     date: options.date,
     achievedValue: options.value,
     level: options.level,
+    sessions: options.sessions,
     contextTag: options.contextTag,
-    note: options.note ?? existing?.note,
+    note: options.note,
     createdAt: existing?.createdAt ?? now,
     updatedAt: now,
   };
+  // 新規行では id の項目自体を渡さない。id: undefined を入れると
+  // 仕様に厳密な実装が「不正なキー」として弾く(自動採番されない)。
+  if (existing?.id !== undefined) log.id = existing.id;
+
   const id = await db.put('logs', log);
   return { ...log, id: id as number };
 }
 
 // ---------------- 集計 ----------------
+
+/** その習慣の全ログ。自分用の規模(年365件)なので全件読んで問題ない。 */
+export async function allLogsOf(habitId: number): Promise<HabitLog[]> {
+  const db = await database();
+  return db.getAllFromIndex(
+    'logs',
+    'habit_date',
+    IDBKeyRange.bound([habitId, '0000-00-00'], [habitId, '9999-99-99']),
+  );
+}
 
 /**
  * 期間内の日付 → レベルの対応表。
@@ -205,6 +250,61 @@ export async function streakOf(
 ): Promise<StreakResult> {
   const levels = await levelsBetween(habit.id!, habit.createdAt, today);
   return computeStreak(habit, levels, today);
+}
+
+/**
+ * 累積の集計。
+ *
+ * 連続記録は途切れると 0 に戻るので、達成感の支えには向かない。
+ * 合計と達成日数は減らないので、こちらを前面に出す。
+ */
+export interface HabitTotals {
+  /** 指定月の合計実績。 */
+  monthTotal: number;
+  /** 通算の合計実績。 */
+  allTotal: number;
+  /** 指定月に通常ラインを達成した日数。 */
+  monthNormalDays: number;
+  /** 指定月に最低ラインで繋いだ日数。 */
+  monthMinimumDays: number;
+  /** 指定月の休息日数。 */
+  monthRestDays: number;
+  /** 通算で達成(通常+最低)した日数。 */
+  allAchievedDays: number;
+  /** 指定月の日付 → レベル。カレンダー表示用。 */
+  monthLevels: LevelMap;
+}
+
+export async function totalsOf(
+  habitId: number,
+  month: DateKey = dk.today(),
+): Promise<HabitTotals> {
+  const logs = await allLogsOf(habitId);
+  const prefix = month.slice(0, 7); // 'YYYY-MM'
+
+  const totals: HabitTotals = {
+    monthTotal: 0,
+    allTotal: 0,
+    monthNormalDays: 0,
+    monthMinimumDays: 0,
+    monthRestDays: 0,
+    allAchievedDays: 0,
+    monthLevels: {},
+  };
+
+  for (const log of logs) {
+    totals.allTotal += log.achievedValue;
+    if (isAchieved(log.level)) totals.allAchievedDays += 1;
+
+    if (log.date.startsWith(prefix)) {
+      totals.monthLevels[log.date] = log.level;
+      totals.monthTotal += log.achievedValue;
+      if (log.level === 'normal') totals.monthNormalDays += 1;
+      if (log.level === 'minimum') totals.monthMinimumDays += 1;
+      if (log.level === 'rest') totals.monthRestDays += 1;
+    }
+  }
+  return totals;
 }
 
 /**

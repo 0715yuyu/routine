@@ -1,21 +1,30 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
-import { dk, WEEKDAY_LABELS, type DateKey, type Habit, type HabitLog } from '../models';
 import {
+  dk,
+  WEEKDAY_LABELS,
+  type DateKey,
+  type Habit,
+  type HabitLog,
+} from '../models';
+import {
+  addMinimum,
+  addNormal,
   clearLog,
   entriesFor,
   exportAll,
+  findHabit,
+  findLog,
   importAll,
   levelsBetween,
   markRest,
-  record,
-  recordMinimum,
-  recordNormal,
+  restoreLog,
+  setTotal,
   streakOf,
-  findLog,
-  findHabit,
+  totalsOf,
 } from '../repository';
 import { HabitCard, type HabitDayView } from './HabitCard';
 import { HabitEditor } from './HabitEditor';
+import { HistoryScreen } from './HistoryScreen';
 import { useTimer } from './useTimer';
 
 interface Toast {
@@ -27,6 +36,7 @@ export function App() {
   const [today, setToday] = useState<DateKey>(dk.today());
   const [views, setViews] = useState<HabitDayView[] | null>(null);
   const [editing, setEditing] = useState<{ habit?: Habit } | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
   const [toast, setToast] = useState<Toast | null>(null);
   const toastTimer = useRef<number | null>(null);
 
@@ -46,26 +56,28 @@ export function App() {
           dk.addDays(weekStart, 6),
         ),
         streak: await streakOf(entry.habit, now),
+        totals: await totalsOf(entry.habit.id!, now),
       })),
     );
     setViews(next);
   }, []);
 
+  const showToast = (next: Toast) => {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast(next);
+    toastTimer.current = window.setTimeout(() => setToast(null), 4000);
+  };
+
   /**
-   * タイマーが終わったら、最低ラインを自動で記録する。
+   * タイマーが終わったら、最低ラインを1回分足す。
    *
-   * 始められた時点で目的は果たされているので、
-   * 改めてボタンを押させない。すでに最低ライン以上の記録が
-   * あるときは上書きしない。
+   * 始められた時点で目的は果たされているので、改めて
+   * ボタンを押させない。加算なので、1日に何度走らせても正しく積む。
    */
   const onTimerFinish = async (habitId: number) => {
     const habit = await findHabit(habitId);
     if (!habit) return;
-    const date = dk.today();
-    const existing = await findLog(habitId, date);
-    if (!existing || existing.achievedValue < habit.minimumTarget) {
-      await recordMinimum(habit, date);
-    }
+    await addMinimum(habit, dk.today());
     await load();
     showToast({ message: `${habit.name} — 終了。記録しました` });
   };
@@ -84,22 +96,20 @@ export function App() {
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [load]);
 
-  const showToast = (next: Toast) => {
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    setToast(next);
-    toastTimer.current = window.setTimeout(() => setToast(null), 4000);
-  };
-
   /** 記録を実行して再読み込みし、取り消し手段を添えて知らせる。 */
-  const act = async (habit: Habit, action: () => Promise<unknown>) => {
+  const act = async (
+    habit: Habit,
+    action: () => Promise<unknown>,
+    message: string,
+  ) => {
     const previous = await findLog(habit.id!, today);
     await action();
     await load();
     showToast({
-      message: `${habit.name} を記録しました`,
+      message,
       undo: async () => {
         // 誤タップの取り消しで、元の記録まで消えないように戻す。
-        await restore(habit, previous, today);
+        await restoreLog(habit.id!, today, previous as HabitLog | undefined);
         await load();
         setToast(null);
       },
@@ -108,14 +118,18 @@ export function App() {
 
   const askValue = async (habit: Habit, current: number) => {
     const input = prompt(
-      `${habit.name} の今日の実績(${habit.unit})\n` +
+      `${habit.name} の今日の合計(${habit.unit})\n` +
         `最低 ${habit.minimumTarget} / 通常 ${habit.normalTarget}`,
       String(current),
     );
     if (input === null) return;
     const value = Number(input);
     if (!Number.isFinite(value) || value < 0) return;
-    await act(habit, () => record({ habit, value, date: today }));
+    await act(
+      habit,
+      () => setTotal(habit, value, today),
+      `${habit.name} を ${value}${habit.unit} にしました`,
+    );
   };
 
   const download = async () => {
@@ -161,6 +175,10 @@ export function App() {
     );
   }
 
+  if (showHistory) {
+    return <HistoryScreen onClose={() => setShowHistory(false)} />;
+  }
+
   return (
     <div class="app">
       <header class="topbar">
@@ -169,6 +187,13 @@ export function App() {
           {dk.format(today)}({WEEKDAY_LABELS[dk.weekday(today) - 1]})
         </span>
         <span class="spacer" />
+        <button
+          class="icon-button"
+          onClick={() => setShowHistory(true)}
+          title="記録"
+        >
+          記録
+        </button>
         <button class="icon-button" onClick={download} title="書き出し">
           ↓
         </button>
@@ -193,44 +218,52 @@ export function App() {
           </button>
         </div>
       ) : (
-        views.map((view) => (
-          <HabitCard
-            key={view.entry.habit.id}
-            view={view}
-            today={today}
-            onNormal={() =>
-              act(view.entry.habit, () => recordNormal(view.entry.habit, today))
-            }
-            onMinimum={() =>
-              act(view.entry.habit, () =>
-                recordMinimum(view.entry.habit, today),
-              )
-            }
-            onRest={() =>
-              act(view.entry.habit, () => markRest(view.entry.habit, today))
-            }
-            onClear={async () => {
-              await clearLog(view.entry.habit.id!, today);
-              await load();
-            }}
-            onCustom={() =>
-              askValue(view.entry.habit, view.entry.log?.achievedValue ?? 0)
-            }
-            onEdit={() => setEditing({ habit: view.entry.habit })}
-            timerRemainingMs={
-              timer.timer?.habitId === view.entry.habit.id
-                ? timer.remainingMs
-                : null
-            }
-            onStartTimer={() =>
-              timer.start(
-                view.entry.habit.id!,
-                view.entry.habit.timerMinutes ?? 5,
-              )
-            }
-            onStopTimer={timer.stop}
-          />
-        ))
+        views.map((view) => {
+          const habit = view.entry.habit;
+          return (
+            <HabitCard
+              key={habit.id}
+              view={view}
+              today={today}
+              onAddNormal={() =>
+                act(
+                  habit,
+                  () => addNormal(habit, today),
+                  `${habit.name} +${habit.normalTarget}${habit.unit}`,
+                )
+              }
+              onAddMinimum={() =>
+                act(
+                  habit,
+                  () => addMinimum(habit, today),
+                  `${habit.name} +${habit.minimumTarget}${habit.unit}`,
+                )
+              }
+              onRest={() =>
+                act(
+                  habit,
+                  () => markRest(habit, today),
+                  `${habit.name} を休息にしました`,
+                )
+              }
+              onClear={async () => {
+                await clearLog(habit.id!, today);
+                await load();
+              }}
+              onCustom={() =>
+                askValue(habit, view.entry.log?.achievedValue ?? 0)
+              }
+              onEdit={() => setEditing({ habit })}
+              timerRemainingMs={
+                timer.timer?.habitId === habit.id ? timer.remainingMs : null
+              }
+              onStartTimer={() =>
+                timer.start(habit.id!, habit.timerMinutes ?? 5)
+              }
+              onStopTimer={timer.stop}
+            />
+          );
+        })
       )}
 
       {toast && (
@@ -242,20 +275,4 @@ export function App() {
       )}
     </div>
   );
-}
-
-async function restore(
-  habit: Habit,
-  previous: HabitLog | undefined,
-  date: DateKey,
-) {
-  if (!previous) {
-    await clearLog(habit.id!, date);
-    return;
-  }
-  if (previous.level === 'rest') {
-    await markRest(habit, date);
-    return;
-  }
-  await record({ habit, value: previous.achievedValue, date });
 }
